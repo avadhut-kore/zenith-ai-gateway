@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  redis-stack:
+    image: redis/redis-stack:latest
+    container_name: zenith-redis-stack
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+      - "8001:8001" # RedisInsight UI
+    volumes:
+      - redis-data:/data
+    environment:
+      - REDIS_ARGS=--save 60 1 --loglevel notice
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zenith-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_NAME=Zenith AI Gateway
+      - DEBUG=false
+      - REDIS_URL=redis://redis-stack:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - SIMILARITY_THRESHOLD=0.95
+      - CACHE_TTL_SECONDS=3600
+      - RATE_LIMIT_TOKENS_PER_MIN=60000
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
+    depends_on:
+      redis-stack:
+        condition: service_healthy
+
+volumes:
+  redis-data:
+    driver: local

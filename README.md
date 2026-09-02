@@ -13,36 +13,36 @@
 
 ```mermaid
 flowchart TD
-    Client[Client App / SDK] -->|POST /v1/chat/completions| Gateway[Zenith AI Gateway]
+    Client["Client App / SDK"] -->|"POST /v1/chat/completions"| Gateway["Zenith AI Gateway"]
     
-    subgraph Gateway Core
-        RL[Token Bucket Rate Limiter] --> Embed[Embedding Service: all-MiniLM-L6-v2]
-        Embed --> CacheCheck{Redis HNSW Vector Search}
+    subgraph Gateway_Core ["Gateway Core"]
+        RL["Token Bucket Rate Limiter"] --> Embed["Embedding Service: all-MiniLM-L6-v2"]
+        Embed --> CacheCheck{"Redis HNSW Vector Search"}
     end
     
     Gateway --> RL
     
-    CacheCheck -->|Cosine Similarity >= 0.95| CacheHit[Return Cached Response<br/>X-Cache: HIT &lt; 30ms]
+    CacheCheck -->|"Cosine Similarity >= 0.95"| CacheHit["Return Cached Response<br/>X-Cache: HIT (latency < 30ms)"]
     CacheHit --> Client
     
-    CacheCheck -->|Cosine Similarity < 0.95| LLMRouter[Multi-Provider LLM Router]
+    CacheCheck -->|"Cosine Similarity < 0.95"| LLMRouter["Multi-Provider LLM Router"]
     
-    subgraph Downstream Providers
-        LLMRouter -->|Async Stream| OpenAI[OpenAI API]
-        LLMRouter -->|Async Stream| Anthropic[Anthropic API]
-        LLMRouter -->|Async Stream| LocalLLM[vLLM / Ollama]
+    subgraph Downstream_Providers ["Downstream Providers"]
+        LLMRouter -->|"Async Stream"| OpenAI["OpenAI API"]
+        LLMRouter -->|"Async Stream"| Anthropic["Anthropic API"]
+        LLMRouter -->|"Async Stream"| LocalLLM["vLLM / Ollama"]
     end
     
-    OpenAI --> StreamHandler[SSE Stream Handler / Aggregator]
+    OpenAI --> StreamHandler["SSE Stream Handler & Aggregator"]
     Anthropic --> StreamHandler
     LocalLLM --> StreamHandler
     
-    StreamHandler -->|Server-Sent Events| Client
-    StreamHandler -.->|Async Background Task| RedisWrite[(Redis Stack HNSW Index)]
+    StreamHandler -->|"Server-Sent Events"| Client
+    StreamHandler -.->|"Async Background Task"| RedisWrite[("Redis Stack HNSW Index")]
     
-    subgraph Observability
-        Gateway -.-> OTEL[OpenTelemetry Traces: TTFT, Latency]
-        Gateway -.-> Prom[Prometheus Metrics: /metrics]
+    subgraph Observability ["Observability"]
+        Gateway -.-> OTEL["OpenTelemetry Traces: TTFT, Latency"]
+        Gateway -.-> Prom["Prometheus Metrics: /metrics"]
     end
 ```
 
